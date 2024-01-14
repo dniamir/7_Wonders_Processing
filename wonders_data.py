@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import openpyxl as xl 
 
-class game():
+class wonder_game():
     """Class containing all data from a single 7 Wonders game"""
     def __init__(self, xlsx_filepath, sheet_name):
 
@@ -16,6 +16,10 @@ class game():
         self.sheet_name = sheet_name
         self.players = list(df)
         self.n_players = len(self.players)
+        self.recorded_civ = False
+        self.victor_civ = None
+        self.victor_side = None
+        self.victor_civside = None
 
         # Ensure total is correct
         for player in self.players:
@@ -28,18 +32,32 @@ class game():
             g = df.loc['Green', player]
             df.loc['Total', player] = a + b + c + d + e + f + g
 
-        self.raw_data = df
+        self.raw_data = df        
+        self.victor = self.raw_data.iloc[1:, :].idxmax(axis=1)['Total']
 
-        # Get high level stats
-        self.civs, self.sides, self.civ_sides = self.get_civs()
+        # Check if civs were recorded
+        if isinstance(self.raw_data.loc['Civilization', :].values[0], str):
+            self.recorded_civ = True
+
+        # Save civilization data
+        if self.recorded_civ:
+            civs, sides, civ_sides = self.get_civs()
+            self.raw_data = self.raw_data.iloc[1:, :]
+            self.raw_data.loc['Civ'] = civs
+            self.raw_data.loc['Side'] = sides
+            self.raw_data.loc['CivSide'] = civ_sides
+            self.victor_civ = self.raw_data.loc['Civ', self.victor]
+            self.victor_side = self.raw_data.loc['Side', self.victor]
+            self.victor_civside = self.raw_data.loc['CivSide', self.victor]
+        else:
+            self.raw_data = self.raw_data.iloc[1:, :]
+            self.raw_data.loc['Civ'] = None
+            self.raw_data.loc['Side'] = None
+            self.raw_data.loc['CivSide'] = None
 
     def get_civs(self):
         """"Return civilization data from the game"""
         civs = self.raw_data.loc['Civilization', :].values
-
-        # Ensure that the civilizations were actually entered
-        if not isinstance(civs[0], str):
-            return civs, civs, civs
 
         sides = [civ[-1] for civ in civs]
         civ_sides = [civ.replace('-', '').replace(' ', '') for civ in civs]
@@ -47,15 +65,25 @@ class game():
 
         return civs, sides, civ_sides
     
-class cumulative_games():
+class all_wonder_games():
     """Class containing data from multiple 7 Wonders games"""
     def __init__(self, xlsx_filepath):
         sheet_names = xl.load_workbook(xlsx_filepath).sheetnames
         self.all_games = {}
+        self.all_players = {}
 
         # Import data from all games
         for sheet_name in sheet_names:
-            self.all_games[sheet_name] = game(xlsx_filepath, sheet_name=sheet_name)
+            game = wonder_game(xlsx_filepath, sheet_name=sheet_name)
 
             # Get cumulative player data
+            for player in game.players:
+                
+                player_df = game.raw_data[[player]].T
+                if player not in list(self.all_players):
+                    self.all_players[player] = player_df
+                else:
+                    self.all_players[player] = pd.concat([self.all_players[player], player_df])
+            
+            self.all_games[sheet_name] = game
         
