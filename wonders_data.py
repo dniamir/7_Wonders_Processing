@@ -11,6 +11,9 @@ class wonder_game():
         df = pd.read_excel(xlsx_filepath, sheet_name=sheet_name)
         df.set_index(list(df)[0], inplace=True)
 
+        # Capitalize player names
+        df.columns = df.columns.str.title()
+
         # Save meta data
         self.filepath = xlsx_filepath
         self.sheet_name = sheet_name
@@ -41,29 +44,49 @@ class wonder_game():
 
         # Save civilization data
         if self.recorded_civ:
-            civs, sides, civ_sides = self.get_civs()
+            civs, sides = self.get_civs()
             self.raw_data = self.raw_data.iloc[1:, :]
             self.raw_data.loc['Civ'] = civs
             self.raw_data.loc['Side'] = sides
-            self.raw_data.loc['CivSide'] = civ_sides
+            
+            # Speel check and update civ-sides
+            self.spell_check()
+            civs = self.raw_data.loc['Civ']
+            sides = self.raw_data.loc['Side']
+
+            civ_sides = ['%s - %s' % (civ, side) for (civ, side) in zip(civs, sides)]
+            self.raw_data.loc['Civ - Side'] = civ_sides
             self.victor_civ = self.raw_data.loc['Civ', self.victor]
             self.victor_side = self.raw_data.loc['Side', self.victor]
-            self.victor_civside = self.raw_data.loc['CivSide', self.victor]
+            self.victor_civside = self.raw_data.loc['Civ - Side', self.victor]
         else:
             self.raw_data = self.raw_data.iloc[1:, :]
             self.raw_data.loc['Civ'] = None
             self.raw_data.loc['Side'] = None
-            self.raw_data.loc['CivSide'] = None
+            self.raw_data.loc['Civ - Side'] = None
+
+    def spell_check(self):
+        """Fix typos in the raw data"""
+        df = self.raw_data
+
+        df.replace('Gyza', 'Giza', inplace=True)
+        df.replace('Gizah', 'Giza', inplace=True)
+        df.replace('Halikarnassos', 'Halicarnassus', inplace=True)
+        df.replace('Halikarnassos', 'Halicarnassus', inplace=True)
+        df.replace('Halikarnasus', 'Halicarnassus', inplace=True)
+        df.replace('Halikarnasos', 'Halicarnassus', inplace=True)
+        df.replace('Halikarnassus', 'Halicarnassus', inplace=True)
+        df.replace('Halakarnasus', 'Halicarnassus', inplace=True)
+
+        self.raw_data = df
 
     def get_civs(self):
         """"Return civilization data from the game"""
         civs = self.raw_data.loc['Civilization', :].values
 
-        sides = [civ[-1] for civ in civs]
-        civ_sides = [civ.replace('-', '').replace(' ', '') for civ in civs]
-        civs = [civ.split('-')[0].replace(' ', '') for civ in civs]
-
-        return civs, sides, civ_sides
+        sides = [civ[-1].upper() for civ in civs]
+        civs = [civ.split('-')[0].replace(' ', '').title() for civ in civs]
+        return civs, sides
     
 class all_wonder_games():
     """Class containing data from multiple 7 Wonders games"""
@@ -71,6 +94,8 @@ class all_wonder_games():
         sheet_names = xl.load_workbook(xlsx_filepath).sheetnames
         self.all_games = {}
         self.all_players = {}
+        self.all_civ_sides = {}
+        self.all_victors = None
 
         # Import data from all games
         for sheet_name in sheet_names:
