@@ -137,11 +137,11 @@ class all_wonder_games():
     def __getitem__(self, name):
         # Customize attribute access
         if name.upper() == 'VICTORS':
-            return self.all_victors
+            return self.all_victors.iloc[:, :11]
         if name in list(self.all_civ_sides):
-            return self.all_civ_sides[name]
+            return self.all_civ_sides[name].iloc[:, :8]
         elif name in list(self.all_players):
-            return self.all_players[name]
+            return self.all_players[name].iloc[:, :8]
         else:
             raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
         
@@ -178,5 +178,9 @@ class all_wonder_games():
         _ = plt.xticks(np.arange(0, len(cols), 1), cols, rotation=45)
         plt.grid(True)
         plt.legend(loc='best')
-        plt.title('Victory Point Allocation')
+        plt.title('7 Wonders - Victory Point Allocation')
         plt.ylabel('Points')
+
+        # Make vertical lines
+        for i in range(len(cols) + 1):
+            plt.axvline(i - 0.5, color='black', ms=0, lw=1)
